@@ -570,7 +570,6 @@
                     <span class="higlighted-text">Tu DNI no se guarda:</span> solo se usa en el momento para una validación segura.
                 </p>
             </div>
-
            
             <section class="id-images-section">
                 <!-- Front side -->
@@ -795,13 +794,14 @@
 
             if (valid) {
                 markAsValidated();
+                showSuccessScreen();
             } else {
                 attempts++;
+                continueBtn.textContent = 'Validar';
                 if (attempts >= MAX_ATTEMPTS) {
                     showErrorScreen();
                 } else {
                     showFeedback('✖ No se pudo validar el DNI. Reintentá con fotos más nítidas. (Intento ' + attempts + '/' + MAX_ATTEMPTS + ')', 'error');
-                    continueBtn.textContent = 'Validar';
                     actualizarBotonValidar();
                 }
             }
