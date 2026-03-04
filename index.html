@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validación de identidad</title>
+
+    <!-- ZXing CDN for ID validation -->
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6/umd/index.min.js"></script>
+    <!-- Material icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font/css/materialdesignicons.min.css">
+ 
+    <style>
+        :root {
+            --accent: #000084;
+            --accent2: #ee1d33;
+            --primary-light: #1a1a9e;
+            --primary-dark: #00005c;
+            --success: #2e7d32;
+            --success-bg: #e8f5e9;
+            --error-bg: #ffebee;
+            --surface: #ffffff;
+            --instructions-bg: #fafafa;
+            --text: #1a1a2e;
+            --text-muted: #64748bea;
+            --text-muted-dark: #525456;
+            --border: #e2e8f0;
+            --radius: 16px;
+            --radius-sm: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'gotham-medium', sans-serif;
+            color: var(--text);
+        }
+
+        /* MODAL */
+        .open-modal-btn {
+            margin-top: 15px;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            background: #000084;
+            color: white;
+            cursor: pointer;
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 132, 0.35);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+            animation: fadeIn 0.25s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal {
+            background: var(--surface);
+            width: 100%;
+            max-width: 700px;
+            max-height: calc(100vh - 40px);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow-y: auto;
+            scrollbar-gutter: stable;
+            padding: 24px;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h2 {
+            color: #000084;
+            margin: 0;
+            text-align: center;
+        }
+
+        /* Modal titles */
+        .modal-title {
+            color: var(--accent);
+            margin: 0;
+            text-align: center;
+            font-size: 22px;
+        }
+        .section-title {
+            color: var(--accent);
+            text-align: center;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 20px 0;
+        }
+        .modal-subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }     
+
+        /* Instructions*/
+        .instructions {
+            display: flex;
+            flex-direction: row;
+            gap: 5px;
+            background: var(--instructions-bg);
+            padding: 0 15px;
+            border-radius: var(--radius-sm);
+            margin: 20px 0;
+            line-height: 1.6;
+            border: 1px solid var(--border);
+            font-size: 14px;
+            color: var(--text-muted-dark);
+        }
+        .lock-icon {
+            font-size: 16px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .higlighted-text {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        /* Upload area */
+        .upload-area-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        .upload-area {
+            flex: 1;
+            min-width: 140px;
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        .upload-area:hover {
+            border-color: var(--accent);
+            background: rgba(13, 71, 161, 0.04);
+            color: var(--accent);
+            transform: translateY(-2px);
+        }
+        .upload-area-option {
+            cursor: pointer;
+        }
+        .upload-area-option:hover .upload-icon,
+        .upload-area-option:hover .upload-area-option-text {
+            color: var(--accent);
+            transform: scale(1.05);
+        }
+        .upload-icon {
+            font-size: 32px;
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+        }
+        .upload-area input {
+            display: none;
+        }
+        .upload-area-options {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 50px;
+            margin-top: 15px;
+        }
+        .upload-area-option-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin: 5px 0 0 0;
+            transition: all 0.3s ease;
+        }
+        .camera-icon {
+            font-size: 30px;
+        }
+
+        /* id images section */
+        .id-images-section {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        .id-sides-container {
+            flex: 1;
+            min-width: 140px;
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-sm);
+            text-align: center;
+            padding: 3px;
+        }
+        
+        .img-wrapper {
+            position: relative;
+            max-width: 100%;
+        }
+        .btn-quitar {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: rgba(192, 57, 43, 0.9);
+            border-radius: 4px;
+            padding: 2px 8px;
+            cursor: pointer;
+            line-height: 1.2;
+            user-select: none;
+            z-index: 5;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: background 0.2s ease;
+        }
+        .btn-quitar:hover {
+            background: rgba(192, 57, 43, 1);
+        }
+        /* preview DNI image */
+        .preview {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 5px;
+        }
+        .preview:empty {
+            display: none;
+        }
+        .preview img {
+            max-height: 130px;
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow);
+            object-fit: contain;
+        }
+
+        /* feedback */
+        .feedback {
+            margin-top: 12px;
+            font-weight: 500;
+            text-align: center;
+            font-size: 14px;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .feedback:empty {
+            display: none;
+        }
+        .success {
+            color: var(--success);
+            background: var(--success-bg);
+        }
+
+        .error {
+            color: var(--accent2);
+            background: var(--error-bg);
+        }
+
+        /* Final tips */
+        .tips-text {
+            font-size: 14px;
+            color: var(--text-muted-dark);
+            margin-bottom: 20px;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* submit button */
+        .button-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 24px;
+        }
+
+        button.continue-btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 12px;
+            background: var(--border);
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        button.continue-btn.enabled {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary-light) 100%);
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 14px -3px rgba(0, 0, 132, 0.4);
+        }
+        button.continue-btn.enabled:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px -4px rgba(0, 0, 132, 0.4);
+        }
+        button.continue-btn.enabled:disabled {
+            background: linear-gradient(135deg, #4a4ac8 0%, #6a6adc 100%);
+            cursor: default;
+            box-shadow: none;
+        }
+
+        /* x button */
+        button.close-btn {
+            float: right;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .close-btn {
+            align-self: flex-end;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        /* success screen */
+        .success-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 30px 20px;
+            animation: fadeIn 0.4s ease;
+            background-color: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            margin: 20px;
+        }
+        .success-screen .success-icon {
+            font-size: 64px;
+            color: var(--success);
+            margin-bottom: 16px;
+        }
+        .success-screen h2 {
+            color: var(--success);
+            margin-bottom: 8px;
+        }
+        .success-screen p {
+            color: var(--text-muted-dark);
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+        .success-screen .close-success-btn {
+            padding: 14px 40px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--success) 0%, #43a047 100%);
+            color: white;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 14px -3px rgba(46, 125, 50, 0.4);
+        }
+        .success-screen .close-success-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px -4px rgba(46, 125, 50, 0.4);
+        }
+
+        /* error screen (max attempts) */
+        .error-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+            animation: fadeIn 0.4s ease;
+            background-color: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            margin: 20px;
+        }
+        .error-screen .error-icon {
+            font-size: 64px;
+            color: var(--accent2);
+            margin-bottom: 16px;
+        }
+        .error-screen h2 {
+            color: var(--accent2);
+            margin-bottom: 15px;
+        }
+        .error-screen p {
+            color: var(--text-muted-dark);
+            font-size: 15px;
+            line-height: 1.6;
+            margin: 0 0 15px 0;
+        }
+        .contact-btn {
+            padding: 14px 40px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary-light) 100%);
+            color: white;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 14px -3px rgba(0, 0, 132, 0.4);
+            text-decoration: none;
+        }
+        .contact-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px -4px rgba(0, 0, 132, 0.4);
+        }
+
+        /* Upload button */
+        .upload-button-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .upload-button {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--primary-light) 100%);
+            color: white;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 14px -3px rgba(0, 0, 132, 0.4);
+        }
+        .upload-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px -4px rgba(0, 0, 132, 0.4);
+        }
+        .upload-button .upload-icon {
+            font-size: 22px;
+            color: white;
+        }
+        .upload-camera-link {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+        .upload-camera-link a {
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        /* media queries */
+        @media (max-width: 600px) {
+            .upload-area-container {
+                flex-direction: column;
+            }
+
+            .upload-area {
+                min-width: 100%;
+            }
+            .upload-area-options {
+                gap: 30px;
+            }
+            .preview img {
+                max-height: 85px;
+            }
+        }
+
+        @media (max-width: 424px) {
+            .modal-title {
+                font-size: 16px;
+            }
+            .upload-area-options {
+                gap: 15px;
+            }
+            .preview img {
+                max-height: 60px;
+            }
+        }
+
+        @media (max-width: 345px) {
+            .preview img {
+                max-height: 50px;
+            }
+            .instructions {
+                margin: 15px 0;
+            }
+            .id-images-section {
+                margin-bottom: 20px;
+            }
+            .id-sides-container {
+                border: none;
+                width: auto;
+                min-width: unset;
+            }
+            .tips-text {
+                margin-bottom: 10px;
+            }
+            .upload-button {
+                font-size: 14px;
+                padding: 8px 10px;
+                gap: 5px;
+            }
+            .upload-button .upload-icon {
+                font-size: 20px;
+            }
+            .feedback {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <button onclick="openModal()" class="open-modal-btn">Validación</button>
+
+    <div id="dniModal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <button class="close-btn" onclick="closeModal()">✖</button>
+
+            <h2 class="modal-title"><i class="mdi mdi-camera title-icon"></i> Subí fotos del frente y dorso de tu DNI</h2>
+
+            <div class="instructions">
+                <p>
+                    <span class="lock-icon"><i class="mdi mdi-lock-outline"></i></span>
+                    <span class="higlighted-text">Tu DNI no se guarda:</span> solo se usa en el momento para una validación segura.
+                </p>
+            </div>
+
+           
+            <section class="id-images-section">
+                <!-- Front side -->
+                <div class="id-sides-container">
+                    <p class="upload-area-option-text">Frente</p>
+                    <div class="preview" id="frontPreviewContainer">
+                        <div class="img-wrapper">
+                            <img src="./images/dni-frente.png" alt="Frente de DNI" class="preview-img" id="frontPreviewImg" />
+                            <span class="btn-quitar" id="remove-front" style="display:none;">Eliminar</span>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Back side -->
+                <div class="id-sides-container">
+                    <p class="upload-area-option-text">Dorso</p>
+                    <div class="preview" id="backPreviewContainer">
+                        <div class="img-wrapper">
+                            <img src="./images/dni-dorso.png" alt="Dorso de DNI" class="preview-img" id="backPreviewImg" />
+                            <span class="btn-quitar" id="remove-back" style="display:none;">Eliminar</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- Upload area -->
+            <div class="upload-button-container" id="upload-set">
+                <input type="file" id="galeriaInput" accept="image/*" style="display: none;">
+                <input type="file" id="fotoInput" accept="image/*" capture="environment" style="display: none;">
+                <button class="upload-button" id="btnCargar" type="button">
+                    <span class="upload-icon"><i class="mdi mdi-folder-upload-outline"></i></span>
+                    <span id="btnCargarLabel">Subí el frente de tu DNI</span>
+                </button>
+                <p class="upload-camera-link">O <a href="#" id="linkCamara">tomá una foto con la cámara</a></p>
+            </div>
+            
+
+            <p class="tips-text">💡 Asegurate de que haya buena luz y que las imágenes sean nítidas, sin reflejos.</p>
+            
+            <div id="feedback" class="feedback"></div>
+
+            <div class="button-container">
+                <button id="continueBtn" class="continue-btn" disabled onclick="validarDNI()">Validar</button>
+            </div>
+
+        </div>
+
+        <!-- Success screen -->
+        <div class="success-screen" id="successScreen">
+            <span class="success-icon"><i class="mdi mdi-check-circle-outline"></i></span>
+            <h2>Identidad verificada</h2>
+            <p>Tu DNI fue validado correctamente.<br>Ya podés continuar con la compra de tus pasajes.</p>
+            <button class="close-success-btn" onclick="closeModal()">Continuar</button>
+        </div>
+
+        <!-- Error screen -->
+        <div class="error-screen" id="errorScreen">
+            <button class="close-btn" onclick="closeModal()">✖</button>
+            <span class="error-icon"><i class="mdi mdi-alert-circle-outline"></i></span>
+            <h2>Validación errónea</h2>
+            <p>Superaste la cantidad máxima de intentos de validación.</p>
+            <p>Por favor, comunicate con nuestro <strong>Contact Center</strong>.</p>
+            <a class="contact-btn" href="https://www.flechabus.com.ar/on/demandware.store/Sites-FlechaBus-Site/es_AR/ContactUs-Landing" target="_blank">Contactar</a>
+        </div>
+
+    </div>
+
+    <script>
+        var feedback = document.getElementById('feedback');
+        var continueBtn = document.getElementById('continueBtn');
+        var modalContent = document.querySelector('.modal');
+        var successScreen = document.getElementById('successScreen');
+        var errorScreen = document.getElementById('errorScreen');
+        var validated = false;
+        var blocked = false;
+        var attempts = 0;
+        var MAX_ATTEMPTS = 5;
+        var codeReader = null;
+
+        try {
+            codeReader = ZXing.BrowserPDF417Reader
+                ? new ZXing.BrowserPDF417Reader()
+                : new ZXing.BrowserMultiFormatReader();
+        } catch (e) {
+            console.error('Error creando codeReader:', e);
+        }
+
+        var pasoActual = 'frente';
+        var frenteOk = false;
+        var dorsoOk = false;
+        var frenteDataUrl = null;
+        var dorsoDataUrl = null;
+
+        var galeriaInput = document.getElementById('galeriaInput');
+        var fotoInput = document.getElementById('fotoInput');
+        var btnCargar = document.getElementById('btnCargar');
+        var btnCargarLabel = document.getElementById('btnCargarLabel');
+        var linkCamara = document.getElementById('linkCamara');
+        var uploadSet = document.getElementById('upload-set');
+        var frontPreviewImg = document.getElementById('frontPreviewImg');
+        var backPreviewImg = document.getElementById('backPreviewImg');
+        var removeFront = document.getElementById('remove-front');
+        var removeBack = document.getElementById('remove-back');
+
+        function openModal() {
+            document.getElementById('dniModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('dniModal').style.display = 'none';
+        }
+
+        function showSuccessScreen() {
+            modalContent.style.display = 'none';
+            successScreen.style.display = 'flex';
+        }
+
+        function showFeedback(message, type) {
+            feedback.className = 'feedback';
+            feedback.textContent = message;
+            if (type) feedback.classList.add(type);
+        }
+
+        function markAsValidated() {
+            validated = true;
+            continueBtn.disabled = false;
+            continueBtn.classList.add('enabled');
+            showFeedback('✔ DNI validado correctamente.', 'success');
+        }
+
+        function showErrorScreen() {
+            blocked = true;
+            modalContent.style.display = 'none';
+            errorScreen.style.display = 'flex';
+        }
+
+        function actualizarPaso() {
+            if (!frenteOk) {
+                pasoActual = 'frente';
+                btnCargarLabel.textContent = 'Subí el frente de tu DNI';
+                uploadSet.style.display = '';
+            } else if (!dorsoOk) {
+                pasoActual = 'dorso';
+                btnCargarLabel.textContent = 'Subí el dorso de tu DNI';
+                uploadSet.style.display = '';
+            } else {
+                uploadSet.style.display = 'none';
+            }
+        }
+
+        function cargarImagen(file) {
+            if (!file || validated || blocked) return;
+
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var dataUrl = e.target.result;
+
+                if (pasoActual === 'frente') {
+                    frontPreviewImg.src = dataUrl;
+                    frenteOk = true;
+                    frenteDataUrl = dataUrl;
+                    removeFront.style.display = 'block';
+                } else {
+                    backPreviewImg.src = dataUrl;
+                    dorsoOk = true;
+                    dorsoDataUrl = dataUrl;
+                    removeBack.style.display = 'block';
+                }
+
+                galeriaInput.value = '';
+                fotoInput.value = '';
+                actualizarPaso();
+                actualizarBotonValidar();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function actualizarBotonValidar() {
+            if (frenteOk && dorsoOk && !validated && !blocked) {
+                continueBtn.disabled = false;
+                continueBtn.classList.add('enabled');
+            } else if (!validated) {
+                continueBtn.disabled = true;
+                continueBtn.classList.remove('enabled');
+            }
+        }
+
+        function scanImage(dataUrl) {
+            return new Promise(function (resolve) {
+                var img = new Image();
+                img.onload = async function () {
+                    try {
+                        var timeout = new Promise(function (_, reject) {
+                            setTimeout(function () { reject(new Error('Timeout')); }, 15000);
+                        });
+                        var result = await Promise.race([codeReader.decodeFromImage(img), timeout]);
+                        var rawText = (result.text !== undefined) ? result.text : result.getText();
+                        resolve(isValidArgentinianDNI(rawText));
+                    } catch (err) {
+                        resolve(false);
+                    }
+                };
+                img.src = dataUrl;
+            });
+        }
+
+        async function validarDNI() {
+            if (validated || blocked || !frenteOk || !dorsoOk) return;
+
+            if (!codeReader) {
+                showFeedback('✖ Error: librería de detección no cargó.', 'error');
+                return;
+            }
+
+            showFeedback('🔍 Detectando código de barras...', '');
+            continueBtn.disabled = true;
+            continueBtn.textContent = 'Validando...';
+
+            var valid = await scanImage(frenteDataUrl);
+            if (!valid) valid = await scanImage(dorsoDataUrl);
+
+            if (valid) {
+                markAsValidated();
+            } else {
+                attempts++;
+                if (attempts >= MAX_ATTEMPTS) {
+                    showErrorScreen();
+                } else {
+                    showFeedback('✖ No se pudo validar el DNI. Reintentá con fotos más nítidas. (Intento ' + attempts + '/' + MAX_ATTEMPTS + ')', 'error');
+                    continueBtn.textContent = 'Validar';
+                    actualizarBotonValidar();
+                }
+            }
+        }
+
+        function isValidArgentinianDNI(text) {
+            if (!text.includes('@')) return false;
+            var parts = text.split('@');
+            if (parts.length < 5) return false;
+            if (!/\d{7,8}/.test(text)) return false;
+            return true;
+        }
+
+        btnCargar.addEventListener('click', function () { galeriaInput.click(); });
+        linkCamara.addEventListener('click', function (e) { e.preventDefault(); fotoInput.click(); });
+        galeriaInput.addEventListener('change', function () { if (this.files && this.files[0]) cargarImagen(this.files[0]); });
+        fotoInput.addEventListener('change', function () { if (this.files && this.files[0]) cargarImagen(this.files[0]); });
+
+        removeFront.addEventListener('click', function () {
+            frontPreviewImg.src = './images/dni-frente.png';
+            frenteOk = false;
+            frenteDataUrl = null;
+            removeFront.style.display = 'none';
+            actualizarPaso();
+            actualizarBotonValidar();
+        });
+
+        removeBack.addEventListener('click', function () {
+            backPreviewImg.src = './images/dni-dorso.png';
+            dorsoOk = false;
+            dorsoDataUrl = null;
+            removeBack.style.display = 'none';
+            actualizarPaso();
+            actualizarBotonValidar();
+        });
+    </script>
+
+</body>
+
+</html>
